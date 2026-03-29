@@ -70,7 +70,13 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       {/* Logo */}
       <Image
         source={require("../assets/images/shield-logo.png")}
@@ -156,6 +162,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: "#045385",
     padding: 30,
+    paddingBottom: 50,
     justifyContent: "center",
     alignItems: "center",
   },

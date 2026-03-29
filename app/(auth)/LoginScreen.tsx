@@ -1,8 +1,5 @@
 import { router } from "expo-router";
-import {
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -51,28 +48,7 @@ export default function LoginScreen() {
 
   // Forgot Password Function
   const handleForgotPassword = async () => {
-    if (!email) {
-      Alert.alert("Enter Email", "Please enter your email first.");
-      return;
-    }
-
-    try {
-      await sendPasswordResetEmail(auth, email);
-      Alert.alert(
-        "Reset Email Sent",
-        "Check your email to reset your password.",
-      );
-    } catch (error: any) {
-      let message = "Something went wrong.";
-
-      if (error.code === "auth/user-not-found") {
-        message = "No account found with this email.";
-      } else if (error.code === "auth/invalid-email") {
-        message = "Invalid email format.";
-      }
-
-      Alert.alert("Reset Failed", message);
-    }
+    router.push("/(app)/ForgotPasswordScreen");
   };
 
   const handleLogin = async () => {
@@ -136,6 +112,9 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
       >
         {/* Logo */}
         <Image

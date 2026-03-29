@@ -1,17 +1,17 @@
 import { router } from "expo-router";
 import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updatePassword,
+    EmailAuthProvider,
+    reauthenticateWithCredential,
+    updatePassword,
 } from "firebase/auth";
 import { useState } from "react";
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
 } from "react-native";
 import { auth } from "../config/firebase";
 
@@ -61,7 +61,13 @@ export default function ChangePasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <Text style={styles.title}>Change Password</Text>
 
       <TextInput
@@ -91,15 +97,16 @@ export default function ChangePasswordScreen() {
       <TouchableOpacity style={styles.button} onPress={handleChangePassword}>
         <Text style={styles.buttonText}>Update Password</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     padding: 25,
+    paddingBottom: 50,
     backgroundColor: "#f4f6fa",
   },
   title: {

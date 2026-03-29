@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { deleteUser, signOut } from "firebase/auth";
-import { useContext, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { useContext, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,13 +11,47 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../config/firebase";
+import { auth, db } from "../config/firebase";
 import { ThemeContext } from "../config/ThemeContext";
 
 export default function Profile() {
   const theme = useContext(ThemeContext);
   const user = auth.currentUser;
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+  // no local editable form state because edit mode is removed
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      console.log("🔍 Profile: Starting to fetch user data");
+      console.log("👤 Current user:", user);
+      console.log("🆔 User UID:", user?.uid);
+      console.log("📛 User displayName:", user?.displayName);
+
+      if (user) {
+        try {
+          console.log("📡 Fetching from Firestore path: users/" + user.uid);
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+
+          console.log("📄 Document exists:", userDoc.exists());
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            console.log("📊 User data from Firestore:", data);
+            setUserData(data);
+          } else {
+            console.log("❌ No user document found in Firestore");
+          }
+        } catch (error) {
+          console.log("❌ Error fetching user data:", error);
+        }
+      } else {
+        console.log("❌ No user logged in");
+      }
+      setLoading(false);
+    };
+
+    fetchUserData();
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -38,7 +73,7 @@ export default function Profile() {
     ]);
   };
 
-  if (!user)
+  if (loading || !user)
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -66,9 +101,15 @@ export default function Profile() {
           Personal Information
         </Text>
         <Text style={{ color: theme.text }}>
-          Full Name: {user.displayName || "Not Set"}
+          Full Name: {userData?.fullName || user.displayName || "Not Set"}
         </Text>
         <Text style={{ color: theme.text }}>Email: {user.email}</Text>
+        <Text style={{ color: theme.text }}>
+          Phone: {userData?.phoneNumber || "Not Set"}
+        </Text>
+        <Text style={{ color: theme.text }}>
+          Address: {userData?.address || "Not Set"}
+        </Text>
         <Text style={{ color: theme.text }}>
           Account Created: {user.metadata.creationTime}
         </Text>
@@ -146,4 +187,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff3b30",
   },
   buttonText: { color: "#fff", fontWeight: "bold" },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    fontSize: 16,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
 });

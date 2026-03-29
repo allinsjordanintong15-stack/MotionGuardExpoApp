@@ -63,6 +63,7 @@ function DrawerLayout() {
         headerShown: true,
         headerStyle: { backgroundColor: theme.card },
         headerTitleStyle: { color: theme.text },
+        headerTintColor: theme.text,
         drawerStyle: { backgroundColor: theme.background },
         drawerLabelStyle: { color: theme.text },
       }}

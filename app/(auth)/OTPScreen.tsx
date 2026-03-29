@@ -2,12 +2,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
 } from "react-native";
 
 import { db } from "../config/firebase";
@@ -41,11 +41,9 @@ export default function OTPScreen() {
     }
 
     if (data.otp === otp) {
-      Alert.alert("Success", "OTP verified");
-
+      Alert.alert("Success", "OTP verified. Enter your new password.");
       router.push({
-        pathname: "./(auth)/ResetPasswordScreen",
-
+        pathname: "./ResetPasswordScreen",
         params: { email },
       });
     } else {
@@ -54,7 +52,13 @@ export default function OTPScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <Text style={styles.title}>Enter OTP</Text>
 
       <Text style={styles.text}>Check your email for OTP</Text>
@@ -71,21 +75,19 @@ export default function OTPScreen() {
         <Text style={styles.buttonText}>Verify OTP</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.back}>Back</Text>
+      <TouchableOpacity onPress={() => router.replace("/(auth)/LoginScreen")}>
+        <Text style={styles.back}>Back to Login</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-
+    flexGrow: 1,
     justifyContent: "center",
-
     padding: 30,
-
+    paddingBottom: 50,
     backgroundColor: "#045385",
   },
 

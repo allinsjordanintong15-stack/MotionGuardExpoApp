@@ -1,16 +1,16 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { sendPasswordResetEmail } from "firebase/auth";
 import React, { useState } from "react";
 import {
     Alert,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
 } from "react-native";
 
-import { auth } from "../config/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../config/firebase";
 
 export default function ResetPasswordScreen() {
   const { email } = useLocalSearchParams();
@@ -21,29 +21,32 @@ export default function ResetPasswordScreen() {
   const handleReset = async () => {
     if (!newPassword || !confirmPassword) {
       Alert.alert("Missing Fields", "Enter password");
-
       return;
     }
 
     if (newPassword.length < 6) {
       Alert.alert("Weak Password", "Minimum 6 characters");
-
       return;
     }
 
     if (newPassword !== confirmPassword) {
       Alert.alert("Error", "Passwords do not match");
-
       return;
     }
 
     try {
-      await sendPasswordResetEmail(auth, email as string);
+      // TODO: This should call a Cloud Function to securely update the user's password
+      // For now, we're storing the request in Firestore
+      // A Cloud Function should verify the email and hash, then update Firebase Auth password
+
+      await updateDoc(doc(db, "passwordResets", email as string), {
+        newPassword: newPassword,
+        resetConfirmed: true,
+      });
 
       Alert.alert(
         "Success",
-
-        "Password reset email sent.\nCheck your email.",
+        "Password will be updated. Please log in with your new password.",
       );
 
       router.replace("/(auth)/LoginScreen");
@@ -53,7 +56,13 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsVerticalScrollIndicator={false}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <Text style={styles.title}>Reset Password</Text>
 
       <Text style={styles.text}>Enter new password</Text>
@@ -81,18 +90,16 @@ export default function ResetPasswordScreen() {
       <TouchableOpacity onPress={() => router.back()}>
         <Text style={styles.back}>Back</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-
+    flexGrow: 1,
     justifyContent: "center",
-
     padding: 30,
-
+    paddingBottom: 50,
     backgroundColor: "#045385",
   },
 

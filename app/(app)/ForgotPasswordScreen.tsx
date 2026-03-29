@@ -3,12 +3,12 @@ import { router } from "expo-router";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import React, { useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { EMAILJS_CONFIG } from "../config/email";
@@ -60,7 +60,7 @@ export default function ForgotPasswordScreen() {
       Alert.alert("OTP Sent", "Check your email");
 
       router.push({
-        pathname: "./OTPScreen",
+        pathname: "/(auth)/OTPScreen",
 
         params: { email },
       });

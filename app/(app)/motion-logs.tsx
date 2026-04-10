@@ -130,7 +130,7 @@ export default function MotionLogs() {
           >
             <View style={styles.logHeader}>
               <Text style={[styles.location, { color: theme.text }]}>
-                📍 {item.location}
+                {item.location}
               </Text>
               <Text
                 style={[
@@ -138,13 +138,13 @@ export default function MotionLogs() {
                   { color: item.detected ? "#ff3b30" : "#28a745" },
                 ]}
               >
-                {item.detected ? "🚨 MOTION DETECTED" : "✓ NO MOTION"}
+                {item.detected ? " MOTION DETECTED" : "✓ NO MOTION"}
               </Text>
             </View>
 
             <View style={styles.logDetails}>
               <Text style={[styles.timestamp, { color: theme.subText }]}>
-                🕒{" "}
+                {" "}
                 {item.timestamp?.toDate
                   ? item.timestamp.toDate().toLocaleString()
                   : item.triggeredAt
@@ -154,13 +154,13 @@ export default function MotionLogs() {
 
               {item.confidence !== undefined && (
                 <Text style={[styles.confidence, { color: theme.subText }]}>
-                  🎯 Confidence: {Math.round(item.confidence * 100)}%
+                  Confidence: {Math.round(item.confidence * 100)}%
                 </Text>
               )}
 
               {item.userId && (
                 <Text style={[styles.userId, { color: theme.subText }]}>
-                  👤 User: {item.userId.slice(0, 8)}...
+                  User: {item.userId.slice(0, 8)}...
                 </Text>
               )}
             </View>

@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { useContext } from "react";
 import { StyleSheet, View } from "react-native";
-import { ThemeContext, ThemeProvider } from "../config/ThemeContext";
+import { ThemeContext, ThemeProvider } from "@/config/ThemeContext";
 
 function CustomDrawerContent(props: any) {
   const theme = useContext(ThemeContext);
@@ -21,23 +21,23 @@ function CustomDrawerContent(props: any) {
         <DrawerItem
           label="Dashboard"
           labelStyle={{ color: theme.text }}
-          onPress={() => router.push("/")}
+          onPress={() => router.replace("/HomeScreen")}
         />
         <DrawerItem
           label="Motion Logs"
           labelStyle={{ color: theme.text }}
-          onPress={() => router.push("/motion-logs")}
+          onPress={() => router.replace("/motion-logs")}
         />
         <DrawerItem
           label="Settings"
           labelStyle={{ color: theme.text }}
-          onPress={() => router.push("/settings")}
+          onPress={() => router.replace("/settings")}
         />
 
         <DrawerItem
           label="Add Sensor"
           labelStyle={{ color: theme.text }}
-          onPress={() => router.push("/add-sensor")}
+          onPress={() => router.replace("/add-sensor")}
         />
       </View>
 
@@ -47,7 +47,7 @@ function CustomDrawerContent(props: any) {
         <DrawerItem
           label="Profile"
           labelStyle={{ color: theme.text }}
-          onPress={() => router.push("/profile")}
+          onPress={() => router.replace("/profile")}
         />
       </View>
     </DrawerContentScrollView>
@@ -70,7 +70,7 @@ function DrawerLayout() {
       drawerContent={(props) => <CustomDrawerContent {...props} />}
     >
       <Drawer.Screen
-        name="index"
+        name="HomeScreen"
         options={{ drawerLabel: () => null, title: "Dashboard" }}
       />
       <Drawer.Screen
@@ -81,12 +81,10 @@ function DrawerLayout() {
         name="settings"
         options={{ drawerLabel: () => null, title: "Settings" }}
       />
-
       <Drawer.Screen
         name="add-sensor"
         options={{ drawerLabel: () => null, title: "Add Sensor" }}
       />
-
       <Drawer.Screen
         name="profile"
         options={{ drawerLabel: () => null, title: "Profile" }}

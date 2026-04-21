@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function deviceOwnerId(deviceId) {
+      let data = get(/databases/$(database)/documents/devices/$(deviceId)).data;
+      return data.ownerId != null ? data.ownerId : data.owner;
+    }
+
+    function ownsDevice(deviceId) {
+      return signedIn() && deviceOwnerId(deviceId) == request.auth.uid;
+    }
+
+    // OTP/password reset records must never be readable/writable from client apps.
+    match /passwordResets/{docId} {
+      allow read, write: if false;
+    }
+
+    // One device can have only one owner.
+    // A user may claim an unowned device, but cannot steal an owned one.
+    match /devices/{deviceId} {
+      // Needed for "Add Device" checks from app (including unclaimed docs).
+      allow get: if signedIn();
+
+      allow list: if false;
+
+      allow create: if signedIn() &&
+        request.resource.data.ownerId == request.auth.uid;
+
+      allow update: if signedIn() && (
+        // Existing owner can update non-owner metadata.
+        (ownsDevice(deviceId) &&
+          request.resource.data.ownerId == deviceOwnerId(deviceId)) ||
+        // Claim unowned device exactly once.
+        (
+          resource.data.ownerId == null &&
+          resource.data.owner == null &&
+          request.resource.data.ownerId == request.auth.uid
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // Each user can only manage their own linked devices.
+    match /users/{userId}/devices/{deviceId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create, update: if signedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.deviceId == deviceId &&
+        (
+          // Allow when device already belongs to the user.
+          ownsDevice(deviceId) ||
+          // Also allow in same transaction/batch where device ownership is set.
+          (
+            getAfter(/databases/$(database)/documents/devices/$(deviceId)).data.ownerId
+              == request.auth.uid
+          ) ||
+          (
+            getAfter(/databases/$(database)/documents/devices/$(deviceId)).data.owner
+              == request.auth.uid
+          )
+        );
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Motion logs are isolated by device ownership.
+    match /motionLogs/{deviceId}/logs/{logId} {
+      allow read, write: if ownsDevice(deviceId);
+    }
+
+    // Default: authenticated-only for other collections.
+    match /{document=**} {
+      allow read, write: if signedIn();
+    }
+  }
+}
+

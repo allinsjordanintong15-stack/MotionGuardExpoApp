@@ -1,19 +1,18 @@
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { auth } from "./config/firebase";
+import { auth } from "@/config/firebase";
 
 export default function Root() {
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.replace("/HomeScreen"); // already logged in
+        router.replace("/HomeScreen");
       } else {
-        router.replace("/(auth)/LoginScreen"); // not logged in
+        router.replace("/(auth)/LoginScreen");
       }
       setLoading(false);
     });

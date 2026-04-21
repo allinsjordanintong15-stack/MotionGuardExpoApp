@@ -9,57 +9,98 @@ import {
     View,
 } from "react-native";
 
-import { ThemeContext } from "../config/ThemeContext";
+import { ThemeContext } from "@/config/ThemeContext";
 
-import { auth, db } from "../config/firebase";
+import { auth, db, rtdb } from "@/config/firebase";
 
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { get, ref } from "firebase/database";
 
 export default function AddSensor() {
   const theme = useContext(ThemeContext);
 
   const [deviceId, setDeviceId] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const handleAdd = async () => {
-    if (!deviceId) {
+    const normalizedDeviceId = deviceId.trim().toUpperCase();
+    const uid = auth.currentUser?.uid;
+    let conflictingOwnerId = "";
+
+    if (!normalizedDeviceId) {
       Alert.alert("Enter Device ID");
-
+      return;
+    }
+    if (!uid) {
+      Alert.alert("Not Authenticated", "Please log in again.");
       return;
     }
 
-    const deviceRef = doc(db, "devices", deviceId);
+    try {
+      setAdding(true);
+      const rtdbDeviceSnap = await get(ref(rtdb, `devices/${normalizedDeviceId}`));
+      if (!rtdbDeviceSnap.exists()) {
+        throw new Error("DEVICE_NOT_REGISTERED_ONLINE");
+      }
 
-    const deviceSnap = await getDoc(deviceRef);
+      await runTransaction(db, async (transaction) => {
+        const deviceRef = doc(db, "devices", normalizedDeviceId);
+        const userDeviceRef = doc(db, "users", uid, "devices", normalizedDeviceId);
+        const deviceSnap = await transaction.get(deviceRef);
 
-    if (!deviceSnap.exists()) {
-      Alert.alert("Device not found");
+        const deviceData = (deviceSnap.data() ?? {}) as {
+          ownerId?: string;
+          owner?: string;
+        };
+        const ownerId = deviceData.ownerId ?? deviceData.owner;
+        if (ownerId && ownerId !== uid) {
+          conflictingOwnerId = String(ownerId);
+          throw new Error("DEVICE_ALREADY_OWNED");
+        }
 
-      return;
+        transaction.set(
+          deviceRef,
+          {
+            ownerId: uid,
+            owner: uid,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+
+        transaction.set(
+          userDeviceRef,
+          {
+            deviceId: normalizedDeviceId,
+            ownerId: uid,
+            addedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      });
+
+      Alert.alert("Device Added", `Device ${normalizedDeviceId} linked successfully.`);
+      setDeviceId("");
+    } catch (error: any) {
+      if (error?.message === "DEVICE_NOT_REGISTERED_ONLINE") {
+        Alert.alert(
+          "Device not found",
+          "This DEVICE_ID is not online/registered yet. Power on the device and try again.",
+        );
+      } else if (error?.message === "DEVICE_ALREADY_OWNED") {
+        const maskedOwner = conflictingOwnerId
+          ? `${conflictingOwnerId.slice(0, 8)}...`
+          : "unknown";
+        Alert.alert(
+          "Already owned",
+          `This device is already linked to another account (owner UID: ${maskedOwner}).`,
+        );
+      } else {
+        Alert.alert("Error", "Failed to add device. Please try again.");
+      }
+    } finally {
+      setAdding(false);
     }
-
-    const deviceData: any = deviceSnap.data();
-
-    if (deviceData.owner) {
-      Alert.alert("Device already registered");
-
-      return;
-    }
-
-    await updateDoc(deviceRef, {
-      owner: auth.currentUser?.uid,
-    });
-
-    await setDoc(
-      doc(db, `users/${auth.currentUser?.uid}/devices/${deviceId}`),
-
-      {
-        deviceId: deviceId,
-      },
-    );
-
-    Alert.alert("Sensor Added!");
-
-    setDeviceId("");
   };
 
   return (
@@ -83,10 +124,15 @@ export default function AddSensor() {
       />
 
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: theme.primary }]}
+        style={[
+          styles.button,
+          { backgroundColor: theme.primary },
+          adding && { opacity: 0.7 },
+        ]}
         onPress={handleAdd}
+        disabled={adding}
       >
-        <Text style={styles.buttonText}>Add Device</Text>
+        <Text style={styles.buttonText}>{adding ? "Adding..." : "Add Device"}</Text>
       </TouchableOpacity>
     </View>
   );

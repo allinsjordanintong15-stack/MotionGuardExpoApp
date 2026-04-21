@@ -2,10 +2,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
 } from "firebase/firestore";
+import { router } from "expo-router";
 import { useContext, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,8 +18,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../config/firebase";
-import { ThemeContext } from "../config/ThemeContext";
+import { auth, db } from "@/config/firebase";
+import { ThemeContext } from "@/config/ThemeContext";
 
 interface MotionLog {
   id: string;
@@ -35,13 +37,39 @@ export default function MotionLogs() {
   const [logs, setLogs] = useState<MotionLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [loadingDevices, setLoadingDevices] = useState(true);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const userId = auth.currentUser?.uid;
-  const DEVICE_ID = "MG001"; // testing device
 
   useEffect(() => {
-    if (!userId) return;
+    const loadDevices = async () => {
+      if (!userId) {
+        setActiveDeviceId(null);
+        setLoadingDevices(false);
+        return;
+      }
+
+      try {
+        setLoadingDevices(true);
+        const devicesSnap = await getDocs(collection(db, "users", userId, "devices"));
+        setActiveDeviceId(devicesSnap.docs[0]?.id ?? null);
+      } finally {
+        setLoadingDevices(false);
+      }
+    };
+
+    loadDevices();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !activeDeviceId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     const q = query(
-      collection(db, "motionLogs", DEVICE_ID, "logs"),
+      collection(db, "motionLogs", activeDeviceId, "logs"),
       orderBy("timestamp", "desc"),
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -53,7 +81,7 @@ export default function MotionLogs() {
       setLoading(false);
     });
     return unsubscribe;
-  }, [userId]);
+  }, [userId, activeDeviceId]);
 
   const clearAllLogs = async () => {
     Alert.alert(
@@ -71,7 +99,7 @@ export default function MotionLogs() {
             setClearing(true);
             try {
               const deletePromises = logs.map((log) =>
-                deleteDoc(doc(db, "motionLogs", DEVICE_ID, "logs", log.id)),
+                deleteDoc(doc(db, "motionLogs", activeDeviceId!, "logs", log.id)),
               );
               await Promise.all(deletePromises);
               console.log("✅ All motion logs cleared");
@@ -96,6 +124,35 @@ export default function MotionLogs() {
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
+
+  if (loadingDevices) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  if (!activeDeviceId) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyStateText, { color: theme.text }]}>
+            No device linked yet.
+          </Text>
+          <Text style={[styles.emptyStateSubtext, { color: theme.subText }]}>
+            Add your DEVICE_ID to view motion logs.
+          </Text>
+          <TouchableOpacity
+            style={[styles.clearButton, { backgroundColor: theme.primary, marginTop: 14 }]}
+            onPress={() => router.push("/add-sensor")}
+          >
+            <Text style={styles.clearButtonText}>Add Device ID</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

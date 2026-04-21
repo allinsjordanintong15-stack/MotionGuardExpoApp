@@ -1,22 +1,22 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
 } from "react-native";
 
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { FUNCTIONS_BASE_URL } from "@/config/backend";
 
 export default function ResetPasswordScreen() {
-  const { email } = useLocalSearchParams();
+  const { email, resetToken } = useLocalSearchParams();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleReset = async () => {
     if (!newPassword || !confirmPassword) {
@@ -35,23 +35,37 @@ export default function ResetPasswordScreen() {
     }
 
     try {
-      // TODO: This should call a Cloud Function to securely update the user's password
-      // For now, we're storing the request in Firestore
-      // A Cloud Function should verify the email and hash, then update Firebase Auth password
+      if (!resetToken) {
+        Alert.alert("Error", "Reset session expired. Please request a new OTP.");
+        return;
+      }
 
-      await updateDoc(doc(db, "passwordResets", email as string), {
-        newPassword: newPassword,
-        resetConfirmed: true,
+      setLoading(true);
+      const res = await fetch(`${FUNCTIONS_BASE_URL}/resetPassword`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          resetToken,
+          newPassword,
+        }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        Alert.alert("Error", json?.error ?? "Password reset failed");
+        return;
+      }
 
       Alert.alert(
         "Success",
-        "Password will be updated. Please log in with your new password.",
+        "Password updated. Please log in with your new password.",
       );
 
       router.replace("/(auth)/LoginScreen");
-    } catch (error: any) {
-      Alert.alert("Error", error.message);
+    } catch {
+      Alert.alert("Error", "Password reset failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,8 +97,14 @@ export default function ResetPasswordScreen() {
         onChangeText={setConfirmPassword}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleReset}>
-        <Text style={styles.buttonText}>Reset Password</Text>
+      <TouchableOpacity
+        style={[styles.button, loading && { opacity: 0.7 }]}
+        onPress={handleReset}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? "Resetting..." : "Reset Password"}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.back()}>

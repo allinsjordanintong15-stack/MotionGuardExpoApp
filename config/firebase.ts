@@ -1,11 +1,15 @@
-// app/firebase.ts
-
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-// 🔥 Replace with your Firebase config
+import {
+  getAuth,
+  initializeAuth,
+  getReactNativePersistence,
+} from "firebase/auth";
+import { Platform } from "react-native";
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAPgWvh4ClYBK3TiYT3SDmSc7VKynXo9P4",
   authDomain: "motionguarddb.firebaseapp.com",
@@ -18,9 +22,21 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Export Firestore database
 export const db = getFirestore(app);
-export const auth = getAuth(app);
 export const storage = getStorage(app);
-
 export const rtdb = getDatabase(app);
+
+function getOrCreateAuth() {
+  if (Platform.OS === "web") {
+    return getAuth(app);
+  }
+  try {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+  } catch {
+    return getAuth(app);
+  }
+}
+
+export const auth = getOrCreateAuth();

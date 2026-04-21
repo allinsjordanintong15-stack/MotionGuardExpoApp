@@ -3,7 +3,7 @@ import { onValue, ref, set } from "firebase/database";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { Alert } from "react-native";
-import { db, rtdb } from "../app/config/firebase";
+import { db, rtdb } from "@/config/firebase";
 
 export interface RealTimeStatusData {
   motionDetected: boolean;

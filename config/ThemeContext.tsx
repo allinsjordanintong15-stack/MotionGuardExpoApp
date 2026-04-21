@@ -1,4 +1,3 @@
-// ThemeContext.tsx
 import { doc, onSnapshot } from "firebase/firestore";
 import React, { createContext, useEffect, useState } from "react";
 import { db } from "./firebase";
@@ -23,7 +22,7 @@ export const DarkTheme = {
 
 export const ThemeContext = createContext(LightTheme);
 
-export const ThemeProvider = ({ children }: any) => {
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {

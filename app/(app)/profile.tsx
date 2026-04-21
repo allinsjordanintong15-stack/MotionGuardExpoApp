@@ -11,8 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth, db } from "../config/firebase";
-import { ThemeContext } from "../config/ThemeContext";
+import { auth, db } from "@/config/firebase";
+import { ThemeContext } from "@/config/ThemeContext";
 
 export default function Profile() {
   const theme = useContext(ThemeContext);
@@ -137,6 +137,12 @@ export default function Profile() {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.logoutButton]} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.deleteButton]}
+          onPress={handleDeleteAccount}
+        >
+          <Text style={styles.buttonText}>Delete Account</Text>
         </TouchableOpacity>
       </View>
 

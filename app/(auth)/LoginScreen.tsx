@@ -13,7 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
-import { auth } from "../config/firebase";
+import { auth } from "@/config/firebase";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -48,7 +48,7 @@ export default function LoginScreen() {
 
   // Forgot Password Function
   const handleForgotPassword = async () => {
-    router.push("/(app)/ForgotPasswordScreen");
+    router.push("/(auth)/ForgotPasswordScreen");
   };
 
   const handleLogin = async () => {
@@ -107,11 +107,12 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#045385" }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 24}
     >
       <ScrollView
         contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
@@ -177,7 +178,7 @@ export default function LoginScreen() {
 
         {/* Register Link */}
         <Text style={styles.switchText}>
-          Don't have an account?{" "}
+          {"Don't have an account? "}
           <Text
             style={styles.switchLink}
             onPress={() => router.push("/(auth)/RegisterScreen")}
@@ -192,9 +193,12 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 30,
+    paddingTop: 40,
+    paddingBottom: 80,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
   },
   logo: {
     width: 120,

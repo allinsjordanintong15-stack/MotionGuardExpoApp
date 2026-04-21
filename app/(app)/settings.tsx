@@ -9,8 +9,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { db } from "../config/firebase";
-import { ThemeContext } from "../config/ThemeContext";
+import { db } from "@/config/firebase";
+import { ThemeContext } from "@/config/ThemeContext";
 
 interface SettingsData {
   notificationsEnabled: boolean;

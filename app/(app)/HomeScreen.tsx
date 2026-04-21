@@ -1,13 +1,14 @@
 import { get, onValue, ref } from "firebase/database";
+import { router } from "expo-router";
 import {
   addDoc,
   collection,
-  deleteDoc,
-  doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  writeBatch,
 } from "firebase/firestore";
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -24,10 +25,9 @@ import {
   View,
 } from "react-native";
 
-import { ThemeContext } from "../config/ThemeContext";
-import { auth, db, rtdb } from "../config/firebase";
+import * as ThemeContext from "@/config/ThemeContext";
 
-const DEVICE_ID = "MG001"; // testing device
+import { auth, db, rtdb } from "@/config/firebase";
 
 // Configure notifications
 Notifications.setNotificationHandler({
@@ -35,6 +35,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -55,7 +57,7 @@ interface MotionLog {
 }
 
 export default function Dashboard() {
-  const theme = useContext(ThemeContext);
+  const theme = useContext(ThemeContext.ThemeContext);
 
   const [status, setStatus] = useState<SystemStatus>({
     motionDetected: false,
@@ -67,7 +69,10 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<MotionLog[]>([]);
   const [todayDetections, setTodayDetections] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingDevices, setLoadingDevices] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const previousMotionStateRef = useRef(false);
 
   const userId = auth.currentUser?.uid;
@@ -85,18 +90,46 @@ export default function Dashboard() {
           text: "Clear All",
           style: "destructive",
           onPress: async () => {
+            if (clearingLogs) return;
             try {
-              const deletePromises = logs.map((log) =>
-                deleteDoc(doc(db, "motionLogs", DEVICE_ID, "logs", log.id)),
+              setClearingLogs(true);
+              if (!activeDeviceId) {
+                Alert.alert("No Device", "Please add a device first.");
+                return;
+              }
+              const logsRef = collection(
+                db,
+                "motionLogs",
+                activeDeviceId,
+                "logs",
               );
-              await Promise.all(deletePromises);
+              const snapshot = await getDocs(logsRef);
+
+              if (snapshot.empty) {
+                Alert.alert("No Logs", "There are no motion logs to clear.");
+                return;
+              }
+
+              // Firestore batch writes are limited to 500 operations.
+              const docs = snapshot.docs;
+              for (let i = 0; i < docs.length; i += 500) {
+                const batch = writeBatch(db);
+                docs.slice(i, i + 500).forEach((docSnap) => {
+                  batch.delete(docSnap.ref);
+                });
+                await batch.commit();
+              }
+
               console.log("✅ All motion logs cleared from dashboard");
+              Alert.alert("Success", "All motion logs have been cleared.");
             } catch (error) {
               console.log("❌ Error clearing logs from dashboard:", error);
               Alert.alert(
                 "Error",
                 "Failed to clear motion logs. Please try again.",
               );
+            } finally {
+              setClearingLogs(false);
             }
           },
         },
@@ -114,6 +147,35 @@ export default function Dashboard() {
   useEffect(() => {
     console.log("📱 UI Status updated:", status);
   }, [status]);
+
+  // Load user's linked devices
+  useEffect(() => {
+    const loadDevices = async () => {
+      if (!userId) {
+        setActiveDeviceId(null);
+        setLoadingDevices(false);
+        return;
+      }
+
+      try {
+        setLoadingDevices(true);
+        const devicesSnap = await getDocs(
+          collection(db, "users", userId, "devices"),
+        );
+        const ids = devicesSnap.docs.map((d) => d.id);
+        setActiveDeviceId((prev) =>
+          prev && ids.includes(prev) ? prev : (ids[0] ?? null),
+        );
+      } catch (e) {
+        console.log("❌ Failed to load user devices:", e);
+        setError("Failed to load linked devices.");
+      } finally {
+        setLoadingDevices(false);
+      }
+    };
+
+    loadDevices();
+  }, [userId]);
 
   // Request notification permissions
   useEffect(() => {
@@ -136,8 +198,9 @@ export default function Dashboard() {
     requestPermissions();
 
     // Test RTDB connection
+    if (!activeDeviceId) return;
     console.log("🔗 Testing RTDB connection...");
-    const testRef = ref(rtdb, `devices/${DEVICE_ID}`);
+    const testRef = ref(rtdb, `devices/${activeDeviceId}`);
     get(testRef)
       .then((snapshot) => {
         if (snapshot.exists()) {
@@ -145,14 +208,14 @@ export default function Dashboard() {
         } else {
           console.log(
             "⚠️ RTDB path exists but no data:",
-            `devices/${DEVICE_ID}`,
+            `devices/${activeDeviceId}`,
           );
         }
       })
       .catch((error) => {
         console.log("❌ RTDB connection failed:", error);
       });
-  }, []);
+  }, [activeDeviceId]);
 
   // Send local notification
   const sendMotionNotification = async (location: string) => {
@@ -177,7 +240,7 @@ export default function Dashboard() {
     console.log("🔄 useEffect triggered for listeners");
     console.log("👤 User ID:", userId);
 
-    if (!userId) {
+    if (!userId || !activeDeviceId) {
       console.log("❌ No user ID, skipping listener setup");
       setLoading(false);
       return;
@@ -187,7 +250,7 @@ export default function Dashboard() {
 
     // FIRESTORE LOGS LISTENER
     const logsQuery = query(
-      collection(db, "motionLogs", DEVICE_ID, "logs"),
+      collection(db, "motionLogs", activeDeviceId, "logs"),
       orderBy("timestamp", "desc"),
     );
 
@@ -220,21 +283,21 @@ export default function Dashboard() {
     );
 
     // REALTIME DATABASE LISTENER
-    const deviceRef = ref(rtdb, `devices/${DEVICE_ID}`);
+    const deviceRef = ref(rtdb, `devices/${activeDeviceId}`);
 
     const unsubscribeMotion = onValue(
       deviceRef,
       async (snapshot) => {
         console.log("🔥 RTDB Listener triggered");
-        console.log("📍 Device path:", `devices/${DEVICE_ID}`);
+        console.log("📍 Device path:", `devices/${activeDeviceId}`);
 
         if (!snapshot.exists()) {
           console.log(
             "❌ Snapshot does not exist for path:",
-            `devices/${DEVICE_ID}`,
+            `devices/${activeDeviceId}`,
           );
           setError(
-            `⚠️ Device not found at path: devices/${DEVICE_ID}\n\nEnsure RTDB has this structure:\n{\n  "motion_detected": true,\n  "wifi_status": "online",\n  "location": "Main Door"\n}`,
+            `⚠️ Device not found at path: devices/${activeDeviceId}\n\nEnsure RTDB has this structure:\n{\n  "motion_detected": true,\n  "wifi_status": "online",\n  "location": "Main Door"\n}`,
           );
           return;
         }
@@ -282,7 +345,7 @@ export default function Dashboard() {
 
           try {
             // Log motion event to Firestore with userId
-            await addDoc(collection(db, "motionLogs", DEVICE_ID, "logs"), {
+            await addDoc(collection(db, "motionLogs", activeDeviceId, "logs"), {
               detected: true,
               location: location,
               timestamp: serverTimestamp(),
@@ -331,9 +394,9 @@ export default function Dashboard() {
       unsubscribeLogs();
       unsubscribeMotion();
     };
-  }, [userId]);
+  }, [userId, activeDeviceId]);
 
-  if (loading)
+  if (loading || loadingDevices)
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -350,6 +413,38 @@ export default function Dashboard() {
         <Text style={[styles.subtitle, { color: theme.subText }]}>
           Please log in to access the dashboard
         </Text>
+      </View>
+    );
+  }
+
+  if (!activeDeviceId) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: theme.background, padding: 20 },
+        ]}
+      >
+        <Text style={[styles.title, { color: theme.text, marginBottom: 10 }]}>
+          No Device Linked
+        </Text>
+        <Text
+          style={[
+            styles.subtitle,
+            { color: theme.subText, textAlign: "center" },
+          ]}
+        >
+          Enter your DEVICE_ID to start using the app.
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.clearButton,
+            { backgroundColor: theme.primary, marginTop: 20 },
+          ]}
+          onPress={() => router.push("/add-sensor")}
+        >
+          <Text style={styles.clearButtonText}>Add Device ID</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -392,7 +487,7 @@ export default function Dashboard() {
       <View style={styles.headerSection}>
         <Text style={[styles.title, { color: theme.text }]}>Dashboard</Text>
         <Text style={[styles.subtitle, { color: theme.subText }]}>
-          Device: {DEVICE_ID}
+          Device: {activeDeviceId}
         </Text>
       </View>
 
@@ -486,7 +581,7 @@ export default function Dashboard() {
               color={theme.primary}
             />
             <Text style={[styles.analyticsTitle, { color: theme.text }]}>
-              Today's Detections
+              {"Today's Detections"}
             </Text>
           </View>
 
@@ -545,10 +640,17 @@ export default function Dashboard() {
           </Text>
           {logs.length > 0 && (
             <TouchableOpacity
-              style={[styles.clearButton, { backgroundColor: "#ff3b30" }]}
+              style={[
+                styles.clearButton,
+                { backgroundColor: "#ff3b30" },
+                clearingLogs && { opacity: 0.7 },
+              ]}
               onPress={clearAllLogs}
+              disabled={clearingLogs}
             >
-              <Text style={styles.clearButtonText}>Clear All</Text>
+              <Text style={styles.clearButtonText}>
+                {clearingLogs ? "Clearing..." : "Clear All"}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -598,7 +700,7 @@ export default function Dashboard() {
                     <Text
                       style={[styles.eventDevice, { color: theme.subText }]}
                     >
-                      Device: {DEVICE_ID}
+                      Device: {activeDeviceId}
                     </Text>
                   </View>
                 </View>

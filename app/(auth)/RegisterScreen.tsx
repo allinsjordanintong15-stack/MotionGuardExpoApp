@@ -6,13 +6,15 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
 } from "react-native";
-import { auth, db } from "../config/firebase";
+import { auth, db } from "@/config/firebase";
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
@@ -70,18 +72,23 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      showsVerticalScrollIndicator={false}
-      contentInsetAdjustmentBehavior="automatic"
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: "#045385" }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 24}
     >
-      {/* Logo */}
-      <Image
-        source={require("../assets/images/shield-logo.png")}
-        style={styles.logo}
-      />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        {/* Logo */}
+        <Image
+          source={require("../assets/images/shield-logo.png")}
+          style={styles.logo}
+        />
 
       <Text style={styles.title}>Create Account</Text>
       <Text style={styles.subtitle}>
@@ -153,17 +160,18 @@ export default function RegisterScreen() {
           Login here
         </Text>
       </Text>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: "#045385",
     padding: 30,
-    paddingBottom: 50,
-    justifyContent: "center",
+    paddingTop: 40,
+    paddingBottom: 80,
+    justifyContent: "flex-start",
     alignItems: "center",
   },
   logo: {

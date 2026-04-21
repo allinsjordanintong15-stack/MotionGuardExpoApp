@@ -13,7 +13,7 @@ import {
     TextInput,
     TouchableOpacity,
 } from "react-native";
-import { auth } from "../config/firebase";
+import { auth } from "@/config/firebase";
 
 export default function ChangePasswordScreen() {
   const user = auth.currentUser;

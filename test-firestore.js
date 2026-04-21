@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "./app/config/firebase";
+import { db } from "./config/firebase.ts";
 
 export const testFirestoreConnection = async () => {
   try {

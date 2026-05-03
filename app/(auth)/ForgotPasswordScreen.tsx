@@ -11,8 +11,9 @@ import {
 } from "react-native";
 
 import { EMAILJS_CONFIG } from "@/config/email";
-
-import { storePendingOtp } from "@/config/otpStore";
+import { auth, db } from "@/config/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 /** Generate a 6-digit OTP string. */
 function generateOtp(): string {
@@ -21,9 +22,6 @@ function generateOtp(): string {
 
 /**
  * Send OTP email via the EmailJS REST API directly.
- * Using fetch instead of the @emailjs/react-native SDK because the SDK's
- * send() method (v4.x) does not forward `accessToken` in the request body,
- * which is required when EmailJS Strict Mode is enabled on the account.
  */
 async function sendOtpEmail(toEmail: string, otp: string): Promise<void> {
   const body = JSON.stringify({
@@ -69,24 +67,64 @@ export default function ForgotPasswordScreen() {
     try {
       setLoading(true);
 
-      // ── 1. Generate OTP and hold it in the in-memory store ───────────────
-      const otp = generateOtp();
-      storePendingOtp(trimmedEmail, otp);
+      // Check if email exists in Firebase Auth and send password reset email
+      console.log("[ForgotPassword] Sending Firebase password reset email to:", trimmedEmail);
+      try {
+        await sendPasswordResetEmail(auth, trimmedEmail);
+        console.log("[ForgotPassword] Firebase reset email sent");
+      } catch (authError: any) {
+        if (authError.code === "auth/user-not-found") {
+          console.log("[ForgotPassword] User not found, but continuing with OTP");
+          // User not found, but don't reveal this - continue anyway
+        }
+        // Other auth errors - continue anyway
+      }
 
-      // ── 2. Send the OTP email via EmailJS REST API ────────────────────────
+      // Generate OTP for extra verification layer
+      const otp = generateOtp();
+      console.log("[ForgotPassword] Generated OTP for email:", trimmedEmail);
+
+      // Store OTP in Firestore with expiration
+      const otpRef = doc(db, "passwordResets", trimmedEmail);
+      const ttlMs = 5 * 60 * 1000; // 5 minutes
+      const expiresAt = new Date(Date.now() + ttlMs);
+
+      await setDoc(otpRef, {
+        otp,
+        email: trimmedEmail,
+        expiresAt,
+        attempts: 0,
+        createdAt: serverTimestamp(),
+      });
+
+      console.log("[ForgotPassword] Stored OTP in Firestore, sending email...");
+
+      // Send the OTP email via EmailJS
       await sendOtpEmail(trimmedEmail, otp);
 
-      // ── 3. Navigate to OTP entry screen ──────────────────────────────────
+      console.log("[ForgotPassword] Email sent successfully");
+
+      // Navigate to OTP entry screen
+      Alert.alert(
+        "OTP Sent",
+        "We have sent a one-time password to " + trimmedEmail + ". We've also sent a password reset link to your email. You can use either method to reset your password.",
+      );
       router.push({
         pathname: "/(auth)/OTPScreen",
         params: { email: trimmedEmail },
       });
     } catch (e: unknown) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : "Failed to send OTP. Please check your connection and try again.";
       console.error("[ForgotPassword] handleSendOTP error:", e);
+      let message = "Failed to send OTP. Please check your connection and try again.";
+
+      if (e instanceof Error) {
+        message = e.message;
+        // Check if it's a network error
+        if (message.includes("Failed to fetch") || message.includes("Network")) {
+          message = "Network error. Please check your internet connection and try again.";
+        }
+      }
+
       Alert.alert("Error", message);
     } finally {
       setLoading(false);

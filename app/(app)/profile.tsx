@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { deleteUser, signOut } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useContext, useEffect, useState } from "react";
 import {
@@ -56,21 +56,6 @@ export default function Profile() {
   const handleLogout = async () => {
     await signOut(auth);
     router.replace("/(auth)/LoginScreen");
-  };
-  const handleDeleteAccount = () => {
-    Alert.alert("Delete Account", "This action is permanent. Continue?", [
-      { text: "Cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          if (user) {
-            await deleteUser(user);
-            router.replace("/(auth)/LoginScreen");
-          }
-        },
-      },
-    ]);
   };
 
   if (loading || !user)
@@ -138,12 +123,6 @@ export default function Profile() {
         <TouchableOpacity style={[styles.logoutButton]} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.deleteButton]}
-          onPress={handleDeleteAccount}
-        >
-          <Text style={styles.buttonText}>Delete Account</Text>
-        </TouchableOpacity>
       </View>
 
       {/* About */}
@@ -185,12 +164,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
     backgroundColor: "#333",
-  },
-  deleteButton: {
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    backgroundColor: "#ff3b30",
   },
   buttonText: { color: "#fff", fontWeight: "bold" },
   input: {

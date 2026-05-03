@@ -14,9 +14,17 @@ service cloud.firestore {
       return signedIn() && deviceOwnerId(deviceId) == request.auth.uid;
     }
 
-    // OTP/password reset records must never be readable/writable from client apps.
-    match /passwordResets/{docId} {
-      allow read, write: if false;
+    // OTP/password reset records - allow unauthenticated access for password reset flow
+    match /passwordResets/{email} {
+      allow create: if request.resource.data.email == email
+        && request.resource.data.otp is string
+        && request.resource.data.attempts is int
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.createdAt is timestamp;
+      allow get: if resource.data.email == email;
+      allow update: if resource.data.email == email
+        && request.resource.data.email == email;
+      allow delete: if false;
     }
 
     // One device can have only one owner.

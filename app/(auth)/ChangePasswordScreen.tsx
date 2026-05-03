@@ -72,6 +72,7 @@ export default function ChangePasswordScreen() {
 
       <TextInput
         placeholder="Current Password"
+        placeholderTextColor="#666"
         secureTextEntry
         style={styles.input}
         value={currentPassword}
@@ -80,6 +81,7 @@ export default function ChangePasswordScreen() {
 
       <TextInput
         placeholder="New Password"
+        placeholderTextColor="#666"
         secureTextEntry
         style={styles.input}
         value={newPassword}
@@ -88,6 +90,7 @@ export default function ChangePasswordScreen() {
 
       <TextInput
         placeholder="Confirm New Password"
+        placeholderTextColor="#666"
         secureTextEntry
         style={styles.input}
         value={confirmPassword}

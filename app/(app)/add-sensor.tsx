@@ -25,7 +25,6 @@ export default function AddSensor() {
   const handleAdd = async () => {
     const normalizedDeviceId = deviceId.trim().toUpperCase();
     const uid = auth.currentUser?.uid;
-    let conflictingOwnerId = "";
 
     if (!normalizedDeviceId) {
       Alert.alert("Enter Device ID");
@@ -52,10 +51,11 @@ export default function AddSensor() {
           ownerId?: string;
           owner?: string;
         };
-        const ownerId = deviceData.ownerId ?? deviceData.owner;
-        if (ownerId && ownerId !== uid) {
-          conflictingOwnerId = String(ownerId);
-          throw new Error("DEVICE_ALREADY_OWNED");
+        const oldOwnerId = deviceData.ownerId ?? deviceData.owner;
+        if (oldOwnerId && oldOwnerId !== uid) {
+          // Transfer ownership: remove from old owner's devices
+          const oldUserDeviceRef = doc(db, "users", oldOwnerId, "devices", normalizedDeviceId);
+          transaction.delete(oldUserDeviceRef);
         }
 
         transaction.set(
@@ -86,14 +86,6 @@ export default function AddSensor() {
         Alert.alert(
           "Device not found",
           "This DEVICE_ID is not online/registered yet. Power on the device and try again.",
-        );
-      } else if (error?.message === "DEVICE_ALREADY_OWNED") {
-        const maskedOwner = conflictingOwnerId
-          ? `${conflictingOwnerId.slice(0, 8)}...`
-          : "unknown";
-        Alert.alert(
-          "Already owned",
-          `This device is already linked to another account (owner UID: ${maskedOwner}).`,
         );
       } else {
         Alert.alert("Error", "Failed to add device. Please try again.");

@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,48 +9,16 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
-import { sendPasswordResetEmail } from "firebase/auth";
 
-import { auth } from "@/config/firebase";
-import {
-  verifyPendingOtp,
-  getOtpTimeRemainingMs,
-  clearPendingOtp,
-} from "@/config/otpStore";
-
-/** Format milliseconds as M:SS */
-function formatCountdown(ms: number): string {
-  const totalSec = Math.ceil(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+import { clearPendingOtp } from "@/config/otpStore";
+import { db } from "@/config/firebase";
+import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 
 export default function OTPScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
 
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(() => getOtpTimeRemainingMs());
-
-  // Countdown timer
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    timerRef.current = setInterval(() => {
-      const remaining = getOtpTimeRemainingMs();
-      setTimeLeft(remaining);
-      if (remaining <= 0 && timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  const isExpired = timeLeft <= 0;
 
   const handleVerify = async () => {
     const trimmedOtp = otp.trim();
@@ -68,71 +36,70 @@ export default function OTPScreen() {
       return;
     }
 
-    if (isExpired) {
-      Alert.alert(
-        "OTP Expired",
-        "This code has expired. Please go back and request a new one.",
-      );
-      return;
-    }
-
     try {
       setLoading(true);
 
-      // ── 1. Verify OTP against the in-memory store ────────────────────────
-      const result = verifyPendingOtp(email, trimmedOtp);
+      // Verify OTP from Firestore
+      console.log("[OTPScreen] Verifying OTP for email:", email);
+      const resetRef = doc(db, "passwordResets", email);
+      const resetSnap = await getDoc(resetRef);
 
-      if (!result.ok) {
-        switch (result.reason) {
-          case "not_found":
-            Alert.alert(
-              "Session Expired",
-              "No active OTP found. Please go back and request a new code.",
-            );
-            break;
-          case "expired":
-            Alert.alert(
-              "OTP Expired",
-              "This code has expired. Please go back and request a new one.",
-            );
-            break;
-          case "too_many_attempts":
-            Alert.alert(
-              "Too Many Attempts",
-              "You have entered the wrong code too many times. Please go back and request a new OTP.",
-            );
-            break;
-          case "wrong_otp":
-            Alert.alert(
-              "Incorrect Code",
-              "The code you entered is wrong. Please try again.",
-            );
-            break;
-        }
+      if (!resetSnap.exists()) {
+        Alert.alert(
+          "Session Expired",
+          "No active OTP found. Please go back and request a new code.",
+        );
         return;
       }
 
-      // ── 2. OTP is correct – trigger Firebase password reset email ────────
-      // sendPasswordResetEmail works on any Firebase plan (Spark or Blaze)
-      // and requires no Cloud Functions. Firebase will send a secure reset
-      // link to the user's inbox; they click it to set a new password.
-      await sendPasswordResetEmail(auth, email);
+      const resetData = resetSnap.data();
+      const storedOtp = resetData?.otp;
+      const expiresAt = resetData?.expiresAt;
+      const attempts = resetData?.attempts || 0;
 
-      // OTP already cleared by verifyPendingOtp on success; clear timer.
-      if (timerRef.current) clearInterval(timerRef.current);
+      // Check expiration
+      if (expiresAt && new Date() > expiresAt.toDate()) {
+        Alert.alert(
+          "OTP Expired",
+          "This code has expired. Please go back and request a new one.",
+        );
+        return;
+      }
 
-      Alert.alert(
-        "Check Your Email",
-        "Your identity has been verified.\n\nWe have sent a password reset link to " +
-          email +
-          ". Open that email and tap the link to set your new password.",
-        [
-          {
-            text: "Back to Login",
-            onPress: () => router.replace("/(auth)/LoginScreen"),
-          },
-        ],
-      );
+      // Check attempts
+      if (attempts >= 5) {
+        Alert.alert(
+          "Too Many Attempts",
+          "You have entered the wrong code too many times. Please go back and request a new OTP.",
+        );
+        return;
+      }
+
+      // Verify OTP
+      if (storedOtp !== trimmedOtp) {
+        await updateDoc(resetRef, { attempts: attempts + 1 });
+        Alert.alert(
+          "Incorrect Code",
+          "The code you entered is wrong. Please try again.",
+        );
+        return;
+      }
+
+      // OTP verified - generate reset token
+      const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      await updateDoc(resetRef, {
+        verifiedAt: serverTimestamp(),
+        resetToken,
+      });
+
+      console.log("[OTPScreen] OTP verified successfully");
+
+      // Navigate to reset password screen
+      router.push({
+        pathname: "/(auth)/ResetPasswordScreen",
+        params: { email, resetToken },
+      });
     } catch (e: unknown) {
       console.error("[OTPScreen] handleVerify error:", e);
       const message =
@@ -165,16 +132,8 @@ export default function OTPScreen() {
         <Text style={styles.emailText}>{email}</Text>
       </Text>
 
-      {!isExpired ? (
-        <Text style={styles.timer}>Expires in {formatCountdown(timeLeft)}</Text>
-      ) : (
-        <Text style={styles.timerExpired}>
-          Code expired — go back to request a new one.
-        </Text>
-      )}
-
       <TextInput
-        style={[styles.input, isExpired && styles.inputDisabled]}
+        style={styles.input}
         placeholder="• • • • • •"
         placeholderTextColor="#aaa"
         value={otp}
@@ -183,13 +142,13 @@ export default function OTPScreen() {
         maxLength={6}
         returnKeyType="done"
         onSubmitEditing={handleVerify}
-        editable={!loading && !isExpired}
+        editable={!loading}
       />
 
       <TouchableOpacity
-        style={[styles.button, (loading || isExpired) && styles.buttonDisabled]}
+        style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleVerify}
-        disabled={loading || isExpired}
+        disabled={loading}
         activeOpacity={0.8}
       >
         {loading ? (
@@ -237,18 +196,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
   },
-  timer: {
-    color: "#90caf9",
-    textAlign: "center",
-    fontSize: 13,
-    marginBottom: 24,
-  },
-  timerExpired: {
-    color: "#ef9a9a",
-    textAlign: "center",
-    fontSize: 13,
-    marginBottom: 24,
-  },
   input: {
     backgroundColor: "#fff",
     padding: 15,
@@ -259,9 +206,6 @@ const styles = StyleSheet.create({
     letterSpacing: 10,
     fontWeight: "700",
     color: "#045385",
-  },
-  inputDisabled: {
-    opacity: 0.5,
   },
   button: {
     backgroundColor: "#1e88e5",

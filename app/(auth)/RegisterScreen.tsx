@@ -95,9 +95,13 @@ export default function RegisterScreen() {
         Register to access the Motion Alert System
       </Text>
 
+      <Text style={styles.instructions}>
+        Enter your details to create an account
+      </Text>
+
       <TextInput
         placeholder="Full Name"
-        placeholderTextColor="#131212"
+        placeholderTextColor="#666"
         style={styles.input}
         value={fullName}
         onChangeText={setFullName}
@@ -105,7 +109,7 @@ export default function RegisterScreen() {
 
       <TextInput
         placeholder="Email"
-        placeholderTextColor="#131212"
+        placeholderTextColor="#666"
         style={styles.input}
         value={email}
         onChangeText={setEmail}
@@ -115,7 +119,7 @@ export default function RegisterScreen() {
 
       <TextInput
         placeholder="Phone Number"
-        placeholderTextColor="#131212"
+        placeholderTextColor="#666"
         style={styles.input}
         value={phoneNumber}
         onChangeText={setPhoneNumber}
@@ -124,7 +128,7 @@ export default function RegisterScreen() {
 
       <TextInput
         placeholder="Address"
-        placeholderTextColor="#131212"
+        placeholderTextColor="#666"
         style={styles.input}
         value={address}
         onChangeText={setAddress}
@@ -132,7 +136,7 @@ export default function RegisterScreen() {
 
       <TextInput
         placeholder="Password"
-        placeholderTextColor="#131212"
+        placeholderTextColor="#666"
         style={styles.input}
         value={password}
         onChangeText={setPassword}
@@ -151,10 +155,10 @@ export default function RegisterScreen() {
         )}
       </TouchableOpacity>
 
-      <Text style={styles.loginText}>
+      <Text style={styles.switchText}>
         Already have an account?{" "}
         <Text
-          style={styles.loginLink}
+          style={styles.switchLink}
           onPress={() => router.replace("/(auth)/LoginScreen")}
         >
           Login here
@@ -181,44 +185,52 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    color: "#131212",
-    fontSize: 26,
+    color: "#fff",
+    fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
   },
   subtitle: {
-    color: "#131212",
+    color: "#ccc",
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  instructions: {
+    color: "#fff",
     fontSize: 14,
-    marginBottom: 25,
+    marginBottom: 20,
     textAlign: "center",
   },
   input: {
-    backgroundColor: "#cdd1e6",
-    color: "#131212",
+    backgroundColor: "#fff",
+    color: "#000",
     width: "100%",
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 15,
+    elevation: 3,
   },
   button: {
-    backgroundColor: "#007BFF",
+    backgroundColor: "#1e88e5",
     width: "100%",
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
     marginTop: 5,
+    elevation: 4,
   },
   buttonText: {
-    color: "#131212",
+    color: "#fff",
     fontWeight: "bold",
   },
-  loginText: {
-    color: "#131212",
+  switchText: {
+    color: "#fff",
     marginTop: 15,
     textAlign: "center",
   },
-  loginLink: {
-    color: "#007BFF",
+  switchLink: {
+    color: "#90caf9",
     fontWeight: "bold",
   },
 });
